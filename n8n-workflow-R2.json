@@ -1,0 +1,382 @@
+{
+  "name": "Avito Demo Bot - Webhook & Reply R2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "avito-demo-webhook",
+        "responseMode": "lastNode",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "fdf59e37-f101-4cce-87bd-04f4767cb488",
+      "name": "Webhook (Вход от Авито)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 336],
+      "webhookId": "avito-demo-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4b8d8ac6-1c98-491d-89eb-93374ddfea3d",
+              "leftValue": "={{ $('Webhook (Вход от Авито)').item.json.body.payload.value.author_id }}",
+              "rightValue": "={{ $json.body.payload.value.user_id }}",
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "type-check-001",
+              "leftValue": "={{ $json.body.payload.value.type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "text-check-001",
+              "leftValue": "={{ $json.body.payload.value.content.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [208, 336],
+      "id": "d2b7b303-a053-49a8-b726-5c8dffac7adb",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.avito.ru/token/",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "YOUR_CLIENT_ID" },
+            { "name": "client_secret", "value": "YOUR_CLIENT_SECRET" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2bd2d37c-e8cc-4227-b098-782265ae59e9",
+      "name": "Получить Токен Авито",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [448, 160]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook (Вход от Авито)').item.json.body.payload.value.content.text }}",
+        "options": {
+          "systemMessage": "Ты — профессиональный менеджер по продажам ИИ-агентства. Твоя задача — вежливо общаться с клиентами на Авито, выявлять их проблемы в бизнесе и предлагать наши услуги автоматизации. Ищи информацию о наших услугах и ценах в базе знаний. Будь проактивным: задавай вопросы о бизнесе клиента, чтобы понять, какой бот или CRM ему подойдут лучше всего. Если клиент пытается говорить на другие темы — аккуратно возвращай его в русло разговора о помощи в автоматизации и применении ИИ в его бизнесе.\n\nПиши кратко — не более 800 символов в одном сообщении. Не используй markdown-форматирование (никаких ##, **, — и т.д.) — только обычный текст. Авито не поддерживает разметку."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [592, 320],
+      "id": "2fb05a3c-c447-444b-b6d8-4d0e6785af84",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.item.json.output || '';\nconst clean = text.replace(/[#*_~`]/g, '').trim();\nreturn [{ json: { output: clean.slice(0, 1000) } }];"
+      },
+      "id": "truncate-001",
+      "name": "Обрезать ответ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.avito.ru/messenger/v1/accounts/' + $('Webhook (Вход от Авито)').item.json.body.payload.value.user_id + '/chats/' + $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id + '/messages' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Получить Токен Авито').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ type: 'text', message: { text: $('Обрезать ответ').item.json.output } }) }}",
+        "options": {}
+      },
+      "id": "611ed7c8-ba9c-44b1-b1fe-ef26744821e7",
+      "name": "Ответить в Авито",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1000, 320]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [464, 528],
+      "id": "9625f69e-2afb-47e7-af5c-799c98d647e9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL_ID", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [608, 528],
+      "id": "3a9b8c9e-275e-40ab-b118-54ecd09bada9",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": { "id": "YOUR_POSTGRES_CREDENTIAL_ID", "name": "Supabase DB" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Используй этот инструмент, чтобы искать информацию о наших услугах, компетенциях, кейсах и актуальных ценах. Обращайся к нему каждый раз, когда клиент спрашивает про то, что мы умеем, или сколько это стоит.",
+        "tableName": {
+          "__rl": true,
+          "value": "avito_knowledge",
+          "mode": "list",
+          "cachedResultName": "avito_knowledge"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [736, 528],
+      "id": "1e7a720a-e492-49b2-8990-690dfe96fae7",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": { "id": "YOUR_SUPABASE_CREDENTIAL_ID", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": { "options": {} },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [832, 736],
+      "id": "a23c5f1d-3994-4ab5-bf58-36ec045ee17c",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL_ID", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "82640753-8d80-4c94-af9b-2a91cbd0bd9f",
+      "name": "Начать",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 752]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { \"pageContent\": \"Мы — агентство автоматизации бизнеса. Наша главная услуга: разработка ИИ-ассистентов и умных чат-ботов для продаж, техподдержки и HR. Боты интегрируются в Telegram, WhatsApp, Авито, ВКонтакте и на сайты.\" },\n  { \"pageContent\": \"Компетенция: Внедрение CRM-систем (AmoCRM, Битрикс24). Мы настраиваем воронки продаж, автоматизируем постановку задач менеджерам, интегрируем IP-телефонию и мессенджеры. Это снижает потери лидов на 30-40%.\" },\n  { \"pageContent\": \"Компетенция: Разработка голосовых роботов на ИИ. Мы создаем роботов для обзвона (Voicebots), которые звучат естественно, умеют отвечать на вопросы, распознавать интонацию и самостоятельно закрывать сделки или проводить первичный квалификационный опрос.\" },\n  { \"pageContent\": \"Стоимость услуг: Разработка простого чат-бота начинается от 30 000 рублей. Внедрение CRM-системы 'под ключ' — от 80 000 рублей. Создание ИИ Агента с базой знаний (RAG) — от 100 000 рублей. Цены зависят от сложности интеграций.\" }\n];"
+      },
+      "id": "393f2303-bbcb-4666-8ce4-bf888b9ecdf1",
+      "name": "Наши компетенции (Текст)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 752]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "avito_knowledge",
+          "mode": "list",
+          "cachedResultName": "avito_knowledge"
+        },
+        "options": {}
+      },
+      "id": "217c9678-0b2a-4baf-8755-744b6b5dc07d",
+      "name": "Supabase Vector Store (Запись)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [480, 752],
+      "credentials": {
+        "supabaseApi": { "id": "YOUR_SUPABASE_CREDENTIAL_ID", "name": "Supabase account" }
+      }
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "41b4fbd1-3fe1-4453-85e8-baf8b134e56b",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [624, 960]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "506cd067-3200-4579-9e69-f00ed12a05d4",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [480, 960],
+      "credentials": {
+        "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL_ID", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": { "chunkOverlap": 100, "options": {} },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [720, 1056],
+      "id": "324b0859-65c2-474c-ba9f-dda53218ec36",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {},
+      "id": "reg-trigger-001",
+      "name": "Зарегистрировать Webhook",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.avito.ru/token/",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "YOUR_CLIENT_ID" },
+            { "name": "client_secret", "value": "YOUR_CLIENT_SECRET" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "62e4cb6b-0f7f-4bcb-b30c-6a030854b105",
+      "name": "Токен для Регистрации",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.avito.ru/messenger/v3/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Токен для Регистрации').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "url", "value": "https://n8n.YOUR_DOMAIN/webhook/avito-demo-webhook" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4231e98b-5fcf-406f-8fc8-37d2807c790b",
+      "name": "Подписать Webhook Авито",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "Webhook (Вход от Авито)": {
+      "main": [[{ "node": "If", "type": "main", "index": 0 }]]
+    },
+    "If": {
+      "main": [[{ "node": "Получить Токен Авито", "type": "main", "index": 0 }]]
+    },
+    "Получить Токен Авито": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "Обрезать ответ", "type": "main", "index": 0 }]]
+    },
+    "Обрезать ответ": {
+      "main": [[{ "node": "Ответить в Авито", "type": "main", "index": 0 }]]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [[{ "node": "Supabase Vector Store", "type": "ai_embedding", "index": 0 }]]
+    },
+    "Начать": {
+      "main": [[{ "node": "Наши компетенции (Текст)", "type": "main", "index": 0 }]]
+    },
+    "Наши компетенции (Текст)": {
+      "main": [[{ "node": "Supabase Vector Store (Запись)", "type": "main", "index": 0 }]]
+    },
+    "Default Data Loader": {
+      "ai_document": [[{ "node": "Supabase Vector Store (Запись)", "type": "ai_document", "index": 0 }]]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [[{ "node": "Supabase Vector Store (Запись)", "type": "ai_embedding", "index": 0 }]]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [[{ "node": "Default Data Loader", "type": "ai_textSplitter", "index": 0 }]]
+    },
+    "Зарегистрировать Webhook": {
+      "main": [[{ "node": "Токен для Регистрации", "type": "main", "index": 0 }]]
+    },
+    "Токен для Регистрации": {
+      "main": [[{ "node": "Подписать Webhook Авито", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
