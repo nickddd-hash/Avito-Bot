@@ -1,0 +1,666 @@
+{
+  "name": "Avito — Resume Bot 2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "918ff567-a642-4a02-9aec-595ab3a78ce2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "8fc2b1a9-3b60-4387-b59e-c6484cec813c",
+      "name": "Webhook (Вход от Авито)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-496, 336],
+      "webhookId": "918ff567-a642-4a02-9aec-595ab3a78ce2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4b8d8ac6-1c98-491d-89eb-93374ddfea3d",
+              "leftValue": "={{ $('Webhook (Вход от Авито)').item.json.body.payload.value.author_id }}",
+              "rightValue": "={{ $json.body.payload.value.user_id }}",
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "5abe7cb6-a4ca-4a85-916f-23ee0a534d9f",
+              "leftValue": "={{ $json.body.payload.value.type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "fbdcd67f-6394-463c-9bc1-057214bd9f1b",
+              "leftValue": "={{ $json.body.payload.value.content.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [208, 336],
+      "id": "1440a2b4-2985-4a5f-964e-645229f0e1fb",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.avito.ru/token/",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "8MrpTnFOg9YRkLfrRLWf" },
+            { "name": "client_secret", "value": "fnBVRfey0QUM5Cdo9em8lBArUwgjfTgzytGyfuHI" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cbfee150-e0f2-4f48-8683-fc4a206354c3",
+      "name": "Получить Токен Авито",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [416, 240]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook (Вход от Авито)').item.json.body.payload.value.content.text }}",
+        "options": {
+          "systemMessage": "Ты — дружелюбный консультант по автоматизации бизнеса. Общаешься через Авито.\n\nТвоя цель — понять бизнес клиента и ненавязчиво показать, чем можешь помочь. Не продавай в лоб.\n\nКак общаться:\n- Пиши просто, как живой человек. Никаких сложных терминов без объяснений.\n- Сначала задавай вопросы о бизнесе: чем занимаются, как принимают заявки, что отнимает больше всего времени.\n- Предлагай решение только когда понял боль клиента — и только один раз за диалог. Не повторяй предложение если клиент не заинтересовался.\n- Если клиент не готов — просто поддержи разговор или скажи что будешь рад помочь когда понадобится.\n- Никогда не называй цены и суммы. Если спросят — скажи: \"Зависит от задачи, разберёмся после того как поймём что нужно.\"\n- Никогда не проси Telegram, телефон или другие контакты — общение только здесь, на Авито.\n\nИщи информацию о наших услугах в базе знаний.\nПиши кратко — не более 800 символов в одном сообщении.\nНе используй markdown-форматирование — только обычный текст."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [592, 320],
+      "id": "27a06680-2fe5-46b0-bdb6-58d274fa30aa",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.avito.ru/messenger/v1/accounts/180088918/chats/{{ $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Получить Токен Авито').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ type: 'text', message: { text: $('AI Agent').item.json.output } }) }}",
+        "options": {}
+      },
+      "id": "f716bd53-c0fd-4295-81fa-cbef00bde259",
+      "name": "Ответить в Авито",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1104, 320]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [464, 528],
+      "id": "38760a50-c719-48d5-992f-623cfa90c828",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "gYt8SXZKECTmdmC0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=avito_{{ $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [608, 528],
+      "id": "2a34a920-6ccc-4056-afd5-737cecf404e3",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "5shyIbMY0RTNsc2d",
+          "name": "Supabase DB (PROD / Smiths)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Используй этот инструмент, чтобы искать информацию о наших услугах, компетенциях, кейсах и актуальных ценах. Обращайся к нему каждый раз, когда клиент спрашивает про то, что мы умеем, или сколько это стоит.",
+        "tableName": {
+          "__rl": true,
+          "value": "avito_knowledge",
+          "mode": "list",
+          "cachedResultName": "avito_knowledge"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [736, 528],
+      "id": "a3090a9e-cbfd-45c7-aa76-5917bde80d2e",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "ufcODNBDUkmvdedA",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": { "options": {} },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [832, 736],
+      "id": "12010f29-1ec5-41de-9817-2c96ee3d5410",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "gYt8SXZKECTmdmC0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "e81a136a-b45b-4409-98ac-bdff0dbb7e8d",
+      "name": "Начать",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 752]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      pageContent: \"Компетенция: Разработка SaaS-продуктов. Создаем многопользовательские веб-приложения с нуля: React, TypeScript, Supabase (PostgreSQL, авторизация, realtime). Соблюдение ФЗ-152 - данные хранятся на российских серверах.\",\n      metadata: {}\n    }\n  },\n  {\n    json: {\n      pageContent: \"Компетенция: Telegram-боты и Telegram Mini Apps. Разрабатываем ботов для автоматизации продаж и клиентского сервиса, а также полноценные мини-приложения внутри Telegram с голосовым вводом, генерацией PDF и интеграцией с базами данных.\",\n      metadata: {}\n    }\n  },\n  {\n    json: {\n      pageContent: \"Компетенция: ИИ-агенты с памятью и базой знаний. Строим агентов на n8n + GPT, которые помнят историю диалога, ищут информацию в базе знаний (RAG) и интегрируются в любые мессенджеры и платформы.\",\n      metadata: {}\n    }\n  },\n  {\n    json: {\n      pageContent: \"Компетенция: Локальные нейросети и голос. Разворачиваем языковые и голосовые модели на выделенных серверах. Голосовые ответы, распознавание речи, озвучка текста - все работает локально, без сторонних сервисов.\",\n      metadata: {}\n    }\n  },\n  {\n    json: {\n      pageContent: \"Компетенция: Автоматизация на n8n. Строим рабочие процессы любой сложности: парсинг данных, авто-рассылки, интеграции между сервисами, обработка голоса и изображений, уведомления в мессенджеры.\",\n      metadata: {}\n    }\n  },\n  {\n    json: {\n      pageContent: \"Компетенция: Разработка сайтов. Делаем лендинги и корпоративные сайты под ключ.\",\n      metadata: {}\n    }\n  }\n];\n"
+      },
+      "id": "56d60db5-e437-4048-93f1-111506fa1660",
+      "name": "Наши компетенции (Текст)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 752]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "avito_knowledge",
+          "mode": "list",
+          "cachedResultName": "avito_knowledge"
+        },
+        "options": {}
+      },
+      "id": "56812219-bdbf-4429-ae80-7f2f0636a99f",
+      "name": "Supabase Vector Store (Запись)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [480, 752],
+      "credentials": {
+        "supabaseApi": {
+          "id": "ufcODNBDUkmvdedA",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "8b451e2b-f93c-4fd7-83a9-cdd997b527a6",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [624, 960]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "c27b8629-af1e-4d63-a7d8-9ea3095fe19b",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [480, 960],
+      "credentials": {
+        "openAiApi": {
+          "id": "gYt8SXZKECTmdmC0",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 100,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [720, 1056],
+      "id": "f1f0b82f-4674-4704-b122-f2f39d8e7e2e",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.avito.ru/token/",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "8MrpTnFOg9YRkLfrRLWf" },
+            { "name": "client_secret", "value": "fnBVRfey0QUM5Cdo9em8lBArUwgjfTgzytGyfuHI" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29935ff0-7105-40ee-9626-5c0eb5450c54",
+      "name": "Токен для Регистрации",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [768, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.avito.ru/messenger/v3/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Токен для Регистрации').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "url", "value": "https://n8n.flowsmart.ru/webhook/avito-demo-webhook" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5616bdf-5e61-46f3-ae50-c20d9ac346bb",
+      "name": "Подписать Webhook Авито",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1008, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": { "responseCode": 200 }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-320, 336],
+      "id": "62211d46-23fa-46cf-9e18-35f0013cf941",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.item.json.output || '';\nconst clean = text\n  .replace(/[#*_~`]/g, '')\n  .replace(/[«»]/g, '\"')\n  .replace(/–|—/g, '-')\n  .replace(/₽/g, 'руб.')\n  .replace(/\\n{2,}/g, '\\n')\n  .trim();\n\nconst LIMIT = 800;\n\nif (clean.length <= LIMIT) {\n  return [{ json: { ...$input.item.json, output: clean } }];\n}\n\nconst truncated = clean.slice(0, LIMIT);\nconst lastSentenceEnd = Math.max(\n  truncated.lastIndexOf('. '),\n  truncated.lastIndexOf('! '),\n  truncated.lastIndexOf('? ')\n);\n\nconst result = lastSentenceEnd > LIMIT * 0.6\n  ? truncated.slice(0, lastSentenceEnd + 1)\n  : truncated.slice(0, LIMIT).trimEnd() + '...';\n\nreturn [{ json: { ...$input.item.json, output: result } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [912, 320],
+      "id": "0e64f1fe-7726-4a95-99fd-a143c267a3b2",
+      "name": "Обрезать ответ"
+    },
+    {
+      "parameters": {
+        "jsCode": "const botReply = $input.item.json.output || '';\nconst clientMessage = $('Webhook (Вход от Авито)').item.json.body.payload.value.content.text || '';\n\nconst hotSignals = [\n  'интересно', 'интерес', 'хочу', 'давайте', 'расскажите подробнее',\n  'сколько стоит', 'как начать', 'готов', 'попробуем', 'свяжитесь',\n  'когда можно', 'договоримся', 'обсудим', 'да', 'окей', 'ок'\n];\n\nconst text = clientMessage.toLowerCase();\nconst isHot = hotSignals.some(signal => text.includes(signal));\n\nreturn [{ json: { ...$input.item.json, isHot } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1072, 576],
+      "id": "cefc2239-13d0-4d5d-a5f9-ae5a486cd7cc",
+      "name": "Оценить интерес"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "hot-condition",
+              "leftValue": "={{ $json.isHot }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1280, 576],
+      "id": "6704fcf9-a1e3-4c89-9b47-bf94facd5faa",
+      "name": "IF горячий"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8387827961:AAH_sCmSwEegh6MBge_q-aVi4Y07ICbDzCE/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "384297561" },
+            {
+              "name": "text",
+              "value": "=🔥 Горячий лид на Авито!\n\nКлиент: {{ $('Webhook (Вход от Авито)').item.json.body.payload.value.content.text }}\n\nБот ответил: {{ $json.output }}\n\nhttps://www.avito.ru/profile/chats\n\n▶️ /resume {{ $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1520, 576],
+      "id": "0743f94c-8f7c-4bed-a566-b233047c4799",
+      "name": "Уведомить владельца"
+    },
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "009a59db-6247-464d-8e83-8e20ffc14828",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [-480, 16],
+      "webhookId": "5fe28d98-fed0-44a6-b2ce-9edaa8d7a722",
+      "credentials": {
+        "telegramApi": {
+          "id": "TXdrILIqDPtA1TqL",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "cond-owner",
+              "leftValue": "={{ $json.message.from.id }}",
+              "rightValue": 384297561,
+              "operator": { "type": "number", "operation": "equals" }
+            },
+            {
+              "id": "cond-command",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "/resume",
+              "operator": { "type": "string", "operation": "startsWith" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d67fb0b4-293e-47f4-97e3-1a10d577c75d",
+      "name": "IF /resume от владельца",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-256, 16]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.message.text.trim();\nconst parts = text.split(/\\s+/);\nconst chatId = parts[1] || '';\n\nif (!chatId) {\n  throw new Error('chat_id не указан. Используй: /resume avito_12345');\n}\n\nreturn [{ json: { chat_id: chatId } }];"
+      },
+      "id": "7a41cb3d-ff65-444b-a367-87e9bd480f79",
+      "name": "Извлечь chat_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-48, -64]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM avito_paused_chats WHERE chat_id = '{{ $json.chat_id }}' RETURNING chat_id",
+        "options": {}
+      },
+      "id": "43b902d3-7710-494b-8be1-8e76d3e426bc",
+      "name": "Удалить паузу",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [176, -64],
+      "credentials": {
+        "postgres": {
+          "id": "5shyIbMY0RTNsc2d",
+          "name": "Supabase DB (PROD / Smiths)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "384297561",
+        "text": "=✅ Бот возобновлён для чата {{ $('Извлечь chat_id').item.json.chat_id }}",
+        "additionalFields": {}
+      },
+      "id": "df4b3be6-d2b0-4afe-99d0-c09954896e49",
+      "name": "Подтверждение",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [400, -64],
+      "webhookId": "6d94b819-db8b-49c4-aab1-f5347a80c4c9",
+      "credentials": {
+        "telegramApi": {
+          "id": "TXdrILIqDPtA1TqL",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT EXISTS(SELECT 1 FROM avito_paused_chats WHERE chat_id = '{{ $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id }}') AS paused",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-144, 336],
+      "id": "b4dc48bf-46e7-4484-ba20-760c434978e2",
+      "name": "Проверить паузу",
+      "credentials": {
+        "postgres": {
+          "id": "5shyIbMY0RTNsc2d",
+          "name": "Supabase DB (PROD / Smiths)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0d0c62a6-c03d-4235-b2e6-005623eeea10",
+              "leftValue": "={{ $json.paused }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-16, 336],
+      "id": "a478060c-53ed-4f1c-8a0a-0e4bedade418",
+      "name": "IF на паузе"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO avito_paused_chats (chat_id) VALUES ('{{ $('Webhook (Вход от Авито)').item.json.body.payload.value.chat_id }}') ON CONFLICT (chat_id) DO NOTHING",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1728, 576],
+      "id": "aae408b8-6220-428b-b138-ca483df155fa",
+      "name": "Поставить паузу",
+      "credentials": {
+        "postgres": {
+          "id": "5shyIbMY0RTNsc2d",
+          "name": "Supabase DB (PROD / Smiths)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook (Вход от Авито)": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "If": {
+      "main": [[{ "node": "Получить Токен Авито", "type": "main", "index": 0 }]]
+    },
+    "Получить Токен Авито": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "Обрезать ответ", "type": "main", "index": 0 }]]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [[{ "node": "Supabase Vector Store", "type": "ai_embedding", "index": 0 }]]
+    },
+    "Начать": {
+      "main": [[{ "node": "Наши компетенции (Текст)", "type": "main", "index": 0 }]]
+    },
+    "Наши компетенции (Текст)": {
+      "main": [[{ "node": "Supabase Vector Store (Запись)", "type": "main", "index": 0 }]]
+    },
+    "Default Data Loader": {
+      "ai_document": [[{ "node": "Supabase Vector Store (Запись)", "type": "ai_document", "index": 0 }]]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [[{ "node": "Supabase Vector Store (Запись)", "type": "ai_embedding", "index": 0 }]]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [[{ "node": "Default Data Loader", "type": "ai_textSplitter", "index": 0 }]]
+    },
+    "Токен для Регистрации": {
+      "main": [[{ "node": "Подписать Webhook Авито", "type": "main", "index": 0 }]]
+    },
+    "Respond to Webhook": {
+      "main": [[{ "node": "Проверить паузу", "type": "main", "index": 0 }]]
+    },
+    "Обрезать ответ": {
+      "main": [
+        [
+          { "node": "Ответить в Авито", "type": "main", "index": 0 },
+          { "node": "Оценить интерес", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Оценить интерес": {
+      "main": [[{ "node": "IF горячий", "type": "main", "index": 0 }]]
+    },
+    "IF горячий": {
+      "main": [[{ "node": "Уведомить владельца", "type": "main", "index": 0 }]]
+    },
+    "Telegram Trigger": {
+      "main": [[{ "node": "IF /resume от владельца", "type": "main", "index": 0 }]]
+    },
+    "IF /resume от владельца": {
+      "main": [[{ "node": "Извлечь chat_id", "type": "main", "index": 0 }]]
+    },
+    "Извлечь chat_id": {
+      "main": [[{ "node": "Удалить паузу", "type": "main", "index": 0 }]]
+    },
+    "Удалить паузу": {
+      "main": [[{ "node": "Подтверждение", "type": "main", "index": 0 }]]
+    },
+    "Проверить паузу": {
+      "main": [[{ "node": "IF на паузе", "type": "main", "index": 0 }]]
+    },
+    "IF на паузе": {
+      "main": [
+        [],
+        [{ "node": "If", "type": "main", "index": 0 }]
+      ]
+    },
+    "Уведомить владельца": {
+      "main": [[{ "node": "Поставить паузу", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "tags": []
+}
